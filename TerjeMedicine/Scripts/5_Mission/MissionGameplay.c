@@ -1,6 +1,7 @@
 modded class MissionGameplay
 {
 	private float m_terjeScriptableAreaRecalculate;
+	private float m_terjeMindGestureTimer;
 	
 	override void OnMissionStart()
 	{
@@ -124,7 +125,7 @@ modded class MissionGameplay
 		m_terjeScriptableAreaRecalculate = m_terjeScriptableAreaRecalculate - deltaTime;
 		if (m_terjeScriptableAreaRecalculate < 0)
 		{
-			m_terjeScriptableAreaRecalculate = 1.0 / 30.0;
+			m_terjeScriptableAreaRecalculate = 1.0 / 2.0;
 			float psionicEffectVal = GetTerjeScriptableAreas().CalculateTerjeEffectValue(player, "psionic");
 			float psionicProtection = 1.0 - GetTerjeScriptableAreas().CalculatePlayerBodyProtection(player, "psionic", psionicEffectVal);
 			float psionicEffectMod = GetTerjeSettingFloat(TerjeSettingsCollection.MEDICINE_PSIONIC_AREAS_VISUAL_EFFECT);
@@ -132,44 +133,53 @@ modded class MissionGameplay
 		}
 		
 		int mindStateLevel = player.GetTerjeStats().GetMindLevel();
-		if (mindStateLevel >= 4)
+		if (mindStateLevel >= 4 && GetTerjeSettingBool(TerjeSettingsCollection.MEDICINE_MIND_USE_RANDOM_GESTURES)) // Only use check if enabled
 		{
-			float randomCheck = 0.05;
-			if (mindStateLevel >= 5)
+			m_terjeMindGestureTimer += deltaTime;
+			if (m_terjeMindGestureTimer >= 1.0) // Check once per second
 			{
-				randomCheck = 0.25;
+				float randomCheck = 0.05;
+				if (mindStateLevel >= 5)
+				{
+					randomCheck = 0.25;
+				}
+
+				if (Math.RandomFloat01() < randomCheck)
+				{
+					int action = Math.RandomInt(0, 8);
+					if (action == 0)
+					{
+						Weapon_Base weapon;
+						WeaponEventBase weapon_event = new WeaponEventTrigger;
+						if ( Weapon_Base.CastTo(weapon, player.GetItemInHands()) )
+						{
+							weapon.ProcessWeaponEvent(weapon_event);
+						}
+					}
+					else if (action == 1)
+					{
+						if (player.GetEmoteManager().CanPlayEmote(EmoteConstants.ID_EMOTE_SUICIDE))
+						{
+							player.GetEmoteManager().CreateEmoteCBFromMenu(EmoteConstants.ID_EMOTE_SUICIDE);
+						}
+					}
+					else if (!player.GetEmoteManager().IsEmotePlaying())
+					{
+						int emotesCount = player.GetEmoteManager().GetTotalEmotesCount();
+						int emoteId = Math.RandomInt(0, emotesCount);
+						int emoteKey = player.GetEmoteManager().GetEmoteKeyById(emoteId);
+						if (player.GetEmoteManager().CanPlayEmote(emoteKey))
+						{
+							player.GetEmoteManager().CreateEmoteCBFromMenu(emoteKey);
+						}
+					}
+				}
+				m_terjeMindGestureTimer = 0;
 			}
-			
-			if (Math.RandomFloat01() < deltaTime * randomCheck && GetTerjeSettingBool(TerjeSettingsCollection.MEDICINE_MIND_USE_RANDOM_GESTURES))
-			{
-				int action = Math.RandomInt(0, 8);
-				if (action == 0)
-				{
-					Weapon_Base weapon;
-					WeaponEventBase weapon_event = new WeaponEventTrigger;
-					if ( Weapon_Base.CastTo(weapon, player.GetItemInHands()) )
-					{
-						weapon.ProcessWeaponEvent(weapon_event);
-					}
-				}
-				else if (action == 1)
-				{
-					if (player.GetEmoteManager().CanPlayEmote(EmoteConstants.ID_EMOTE_SUICIDE))
-					{
-						player.GetEmoteManager().CreateEmoteCBFromMenu(EmoteConstants.ID_EMOTE_SUICIDE);
-					}
-				}
-				else if (!player.GetEmoteManager().IsEmotePlaying())
-				{
-					int emotesCount = player.GetEmoteManager().GetTotalEmotesCount();
-					int emoteId = Math.RandomInt(0, emotesCount);
-					int emoteKey = player.GetEmoteManager().GetEmoteKeyById(emoteId);
-					if (player.GetEmoteManager().CanPlayEmote(emoteKey))
-					{
-						player.GetEmoteManager().CreateEmoteCBFromMenu(emoteKey);
-					}
-				}
-			}
+		}
+		else
+		{
+			m_terjeMindGestureTimer = 0; // Reset if conditions not met
 		}
 		
 		PPERequesterBank.GetRequester(PPERequesterBank.REQ_TERJEMED_CONCUSSION).SetRequesterUpdating(true);
